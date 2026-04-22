@@ -1218,10 +1218,8 @@ async function initAndSync(){
       if(p.STARTS)STARTS=p.STARTS;
       if(p.OV_DATA)OV_DATA=p.OV_DATA;
       rg();us();chkRem();ovUpdateStats();
-    } else {
-      // DB empty - push current state
-      dbSave();
     }
+    // NOTE: never auto-push to DB here - only save on explicit user action
   }catch(e){console.warn("initAndSync failed",e);}
   // Subscribe to realtime changes
   subscribeRealtime();
