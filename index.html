@@ -159,6 +159,13 @@ tr.drag-over td{border-top:2px solid var(--gold);}
     <button class="fb" onclick="fDept('tm',this)">Talent</button>
     <button class="fb" onclick="fDept('lg',this)">Logistics</button>
     <button class="fb" onclick="fDept('cr',this)">Creatives</button>
+    <span class="cl" style="margin-left:10px;">Status:</span>
+    <button class="fb sf active" onclick="fStatus('all',this)">All</button>
+    <button class="fb sf" onclick="fStatus('not-started',this)">Not Started</button>
+    <button class="fb sf" onclick="fStatus('in-progress',this)">In Progress</button>
+    <button class="fb sf" onclick="fStatus('done',this)">Done</button>
+    <button class="fb sf" onclick="fStatus('pending',this)">Pending</button>
+    <button class="fb sf" onclick="fStatus('overdue',this)">Overdue</button>
     <div class="vt">
       <button class="vtb active" id="bg" onclick="sView('gantt')">Gantt</button>
       <button class="vtb" id="bc" onclick="sView('calendar')">Calendar</button>
@@ -587,7 +594,7 @@ const BASE=[
     ]}
   ]}
 ];
-let S={},CT=[],PICS=Object.assign({},DPICS),CF="all",CV="gantt",CY=2026,CM=3;
+let S={},CT=[],PICS=Object.assign({},DPICS),CF="all",SF="all",CV="gantt",CY=2026,CM=3;
 let ORDER={},COLLAPSED={},REMARKS={},STARTS={},dragSrc=null;
 var ORG_FILTER=null;
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}dbSave();}
@@ -681,7 +688,7 @@ function chkRem(){
       var divider="";
       if(tagTxt!==prevTag&&prevTag!==""){divider="<tr><td colspan=\"4\" style=\"padding:0;border-bottom:1px solid rgba(200,150,10,0.2);\"></td></tr>";}
       prevTag=tagTxt;
-      return divider+"<tr><td class=\"rem-task\">"+t.l+"</td><td><div class=\"rem-pic\">"+p.n+"</div><div class=\"rem-role\">"+p.r+"</div></td><td style=\"font-size:11px;color:rgba(200,170,80,0.7);white-space:nowrap;\">"+dateStr+"</td><td><span class=\"rem-tag "+tagCls+"\">"+tagTxt+"</span></td></tr>";
+      return divider+"<tr style=\"cursor:pointer;\" data-taskid=\""+t.id+"\" title=\"Click to jump to task\"><td class=\"rem-task\">"+t.l+"</td><td><div class=\"rem-pic\">"+p.n+"</div><div class=\"rem-role\">"+p.r+"</div></td><td style=\"font-size:11px;color:rgba(200,170,80,0.7);white-space:nowrap;\">"+dateStr+"</td><td><span class=\"rem-tag "+tagCls+"\">"+tagTxt+"</span></td></tr>";
     }).join("");
   } else {wrap.style.display="none";}
 }
@@ -704,7 +711,7 @@ function makeRow(t,isSub,deptId){
   var bc=isO?"#B01020":st==="done"?"#1D9E75":sc.b;
   var hasSubs=!isSub&&(t.subs||[]).length>0,collapsed=COLLAPSED[t.id];
   var tr=document.createElement("tr");
-  if(!isSub)tr.setAttribute("data-id",t.id);
+  tr.setAttribute("data-id",t.id);
   var cls=(isSub===2)?"sub sub2":isSub?"sub":"";if(isU||isO)cls+=" ur";if(t.custom)cls+=" cx";tr.className=cls.trim();
   if(!isSub){
     tr.setAttribute("draggable","true");
@@ -749,6 +756,31 @@ function makeRow(t,isSub,deptId){
     (isInCT(t.id)?"<button class=\"act-btn del\" onclick=\"deleteTask('"+t.id+"')\">Del</button>":"")+"</td>";
   return tr;
 }
+function scrollToTask(id){
+  // Reset filters so task is visible
+  CF="all";SF="all";
+  document.querySelectorAll(".fb:not(.sf)").forEach(function(b){b.classList.remove("active");});
+  var allDeptBtn=document.querySelector(".fb:not(.sf)");if(allDeptBtn)allDeptBtn.classList.add("active");
+  document.querySelectorAll(".fb.sf").forEach(function(b){b.classList.remove("active");});
+  var allSfBtn=document.querySelector(".fb.sf");if(allSfBtn)allSfBtn.classList.add("active");
+  if(CV!=="gantt"){CV="gantt";document.getElementById("bg").classList.add("active");document.getElementById("bc").classList.remove("active");}
+  rg();
+  // Scroll to the row
+  setTimeout(function(){
+    var el=document.querySelector("[data-id=\""+id+"\"]");
+    if(el){
+      el.scrollIntoView({behavior:"smooth",block:"center"});
+      el.style.transition="background 0.3s";
+      el.style.background="rgba(200,150,10,0.25)";
+      setTimeout(function(){el.style.background="";},1800);
+    }
+  },100);
+}
+function matchSF(t){
+  if(SF==="all")return true;
+  if(SF==="overdue"){var dl=t.d?Math.round((new Date(t.d)-new Date())/864e5):null;return dl!==null&&dl<0&&S[t.id]!=="done";}
+  return (S[t.id]||"not-started")===SF;
+}
 function rg(){
   var _sy=window.scrollY||document.documentElement.scrollTop||0;
   var tbody=document.getElementById("gb");tbody.innerHTML="";
@@ -758,14 +790,14 @@ function rg(){
     hdr.innerHTML="<td colspan=\"11\">"+dept.n+"</td>";tbody.appendChild(hdr);
     var sorted=dept.t.slice().sort(function(a,b){return urgScore(a)-urgScore(b);});
     sorted.forEach(function(t){
-      tbody.appendChild(makeRow(t,false,dept.id));
+      if(matchSF(t)){tbody.appendChild(makeRow(t,false,dept.id));}
       if(!COLLAPSED[t.id]){
         var ss=(t.subs||[]).slice().sort(function(a,b){return urgScore(a)-urgScore(b);});
         ss.forEach(function(s){
-          tbody.appendChild(makeRow(s,true,dept.id));
+          if(matchSF(s)){tbody.appendChild(makeRow(s,true,dept.id));}
           if(!COLLAPSED[s.id]&&(s.subs||[]).length){
             var ss2=(s.subs||[]).slice().sort(function(a,b){return urgScore(a)-urgScore(b);});
-            ss2.forEach(function(s2){tbody.appendChild(makeRow(s2,2,dept.id));});
+            ss2.forEach(function(s2){if(matchSF(s2))tbody.appendChild(makeRow(s2,2,dept.id));});
           }
         });
       }
@@ -1196,6 +1228,12 @@ function loadAll(){
   rg();us();chkRem();buildOrg();ovLoad();
 
   // Attach changelog modal close
+  // Event delegation for reminder rows - handles all rows including after re-render
+  var _rt=document.getElementById("rem-tbody");
+  if(_rt){_rt.addEventListener("click",function(e){
+    var row=e.target.closest("tr[data-taskid]");
+    if(row)scrollToTask(row.getAttribute("data-taskid"));
+  });}
   var _cm=document.getElementById("changelog-modal");
   if(_cm)_cm.addEventListener("click",function(e){if(e.target===this)closeChangelog();});
 
@@ -1218,9 +1256,11 @@ async function initAndSync(){
       if(p.STARTS)STARTS=p.STARTS;
       if(p.OV_DATA)OV_DATA=p.OV_DATA;
       rg();us();chkRem();ovUpdateStats();
+    } else {
+      chkRem();
     }
     // NOTE: never auto-push to DB here - only save on explicit user action
-  }catch(e){console.warn("initAndSync failed",e);}
+  }catch(e){chkRem();console.warn("initAndSync failed",e);}
   // Subscribe to realtime changes
   subscribeRealtime();
 }
@@ -1288,7 +1328,8 @@ function sView(v){
 }
 function calPrev(){CM--;if(CM<0){CM=11;CY--;}rc();}
 function calNext(){CM++;if(CM>11){CM=0;CY++;}rc();}
-function fDept(f,btn){CF=f;document.querySelectorAll(".fb").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");CV==="gantt"?rg():rc();us();}
+function fDept(f,btn){CF=f;document.querySelectorAll(".fb:not(.sf)").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");CV==="gantt"?rg():rc();us();}
+function fStatus(f,btn){SF=f;document.querySelectorAll(".fb.sf").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");CV==="gantt"?rg():rc();}
 loadAll();
 </script>
 
