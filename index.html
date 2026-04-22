@@ -128,6 +128,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
 .toggle-btn{font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--border-s);background:transparent;color:var(--text-dim);cursor:pointer;margin-right:6px;}
 .toggle-btn:hover{color:var(--gold);border-color:var(--gold);}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
 <body>
 <div class="hero">
@@ -169,6 +170,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
     <button onclick="generateReport()" style="font-size:12px;padding:7px 16px;border-radius:6px;border:1px solid rgba(200,150,10,0.5);background:rgba(200,150,10,0.15);color:#EFB820;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:6px;"><span>&#9660;</span> Download Progress Report</button>
     <button onclick="clearDuplicates()" style="font-size:12px;padding:7px 16px;border-radius:6px;border:1px solid rgba(176,16,32,0.5);background:rgba(176,16,32,0.15);color:#FF8090;cursor:pointer;font-weight:600;">&#10005; Clear Duplicates</button>
     <span style="font-size:11px;color:var(--text-dim);align-self:center;">For Marcus &mdash; meeting update Apr 22, 2026</span>
+    <button onclick="openChangelog()" style="font-size:12px;padding:7px 16px;border-radius:6px;border:1px solid rgba(29,158,117,0.5);background:rgba(29,158,117,0.15);color:#5DCAA5;cursor:pointer;font-weight:600;margin-left:auto;">&#128221; Changelog</button>
   </div>
   <div class="panel">
     <div class="panel-hdr" onclick="togglePanel('add-panel','add-arr')">
@@ -281,7 +283,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
     <div class="li"><span class="sdot" style="background:#C8960A;"></span>In progress</div>
     <div class="li"><span class="sdot" style="background:#1D9E75;"></span>Done</div>
     <div class="li"><span class="sdot" style="background:#405080;"></span>Pending</div>
-    <div style="margin-left:auto;font-size:10px;color:var(--text-dim);">Lakas ng Pinas &middot; All changes save in browser</div>
+    <div style="margin-left:auto;font-size:10px;color:var(--text-dim);">Lakas ng Pinas &middot; Live database — changes sync across all browsers</div>
   </div>
 </div>
 <div class="modal-bg" id="edit-modal">
@@ -318,6 +320,186 @@ tr.drag-over td{border-top:2px solid var(--gold);}
 const TODAY=new Date("2026-04-21"),START=new Date("2026-04-21"),END=new Date("2026-05-31");
 const TDAYS=Math.round((END-START)/864e5);
 const SK="mpl_s17_v4",CTK="mpl_s17_ct_v4",ORK="mpl_s17_order_v4",RMK="mpl_s17_remarks_v4",SRK="mpl_s17_starts_v4";
+
+// ---- SUPABASE CONFIG ----
+// Replace these with your project values from supabase.com → Project Settings → API
+const SUPA_URL = "https://tsxeprrdzijykuwrruhg.supabase.co";
+const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzeGVwcnJkemlqeWt1d3JydWhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MTA0MDQsImV4cCI6MjA5MjM4NjQwNH0.dzngVdbHKZXp2j2T5An6qE2lLQ5MoOzeD8n8bnwQBJI";
+let supabase_client = null;
+let DB_READY = false;
+
+function initSupabase() {
+  try {
+    supabase_client = supabase.createClient(SUPA_URL, SUPA_KEY);
+    DB_READY = true;
+  } catch(e) {
+    console.warn("Supabase not configured. Using localStorage only.", e);
+  }
+}
+
+// Department short names for changelog
+const DEPT_NAMES = {
+  pm:"Project Management", lo:"League Ops", br:"Broadcast", ho:"Hospitality",
+  it:"IT", sh:"Show", tm:"Talent Management", lg:"Logistics", cr:"Creatives"
+};
+
+function getDeptOfTask(id) {
+  var depts = getDepts();
+  for(var i=0;i<depts.length;i++) {
+    var d = depts[i];
+    for(var j=0;j<d.t.length;j++) {
+      var t = d.t[j];
+      if(t.id===id) return DEPT_NAMES[d.id]||d.id;
+      var ss = t.subs||[];
+      for(var k=0;k<ss.length;k++) {
+        if(ss[k].id===id) return DEPT_NAMES[d.id]||d.id;
+        var ss2 = ss[k].subs||[];
+        for(var m=0;m<ss2.length;m++) { if(ss2[m].id===id) return DEPT_NAMES[d.id]||d.id; }
+      }
+    }
+  }
+  return "General";
+}
+
+function getTaskLabel(id) {
+  var t = allT().find(function(x){return x.id===id;});
+  return t ? t.l : id;
+}
+
+function fmtTimestampGMT8(iso) {
+  if(!iso) return "";
+  var d = new Date(iso);
+  // GMT+8 = UTC+8
+  var offset = 8 * 60;
+  var local = new Date(d.getTime() + offset * 60000);
+  var mo = local.getUTCMonth();
+  var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var day = days[local.getUTCDay()];
+  var dt = local.getUTCDate();
+  var mn = months[mo];
+  var yr = local.getUTCFullYear();
+  var h = local.getUTCHours();
+  var mi = String(local.getUTCMinutes()).padStart(2,"0");
+  var ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12; if(h===0) h=12;
+  return day+", "+mn+" "+dt+", "+yr+" · "+h+":"+mi+" "+ampm+" (GMT+8)";
+}
+
+async function logChange(dept, taskLabel, changeDesc) {
+  var entry = {
+    dept: dept,
+    task_label: taskLabel,
+    change_desc: changeDesc,
+    created_at: new Date().toISOString()
+  };
+  // Always store locally first
+  try {
+    var local = JSON.parse(localStorage.getItem("mpl_changelog")||"[]");
+    local.unshift(entry);
+    if(local.length > 200) local = local.slice(0,200);
+    localStorage.setItem("mpl_changelog", JSON.stringify(local));
+  } catch(e) {}
+  // Then push to Supabase if connected
+  if(DB_READY && supabase_client) {
+    try {
+      await supabase_client.from("changelog").insert([{
+        dept: dept,
+        task_label: taskLabel,
+        change_desc: changeDesc
+      }]);
+    } catch(e) { console.warn("Changelog push failed", e); }
+  }
+}
+
+async function openChangelog() {
+  document.getElementById("changelog-modal").classList.add("open");
+  var list = document.getElementById("changelog-list");
+  list.innerHTML = "<div style=\"text-align:center;padding:20px;color:var(--text-dim)\">Loading...</div>";
+  var entries = [];
+  // Try Supabase first
+  if(DB_READY && supabase_client) {
+    try {
+      var res = await supabase_client.from("changelog")
+        .select("*").order("created_at",{ascending:false}).limit(150);
+      if(res.data && res.data.length) { entries = res.data; }
+    } catch(e) {}
+  }
+  // Fallback to localStorage
+  if(!entries.length) {
+    try { entries = JSON.parse(localStorage.getItem("mpl_changelog")||"[]"); } catch(e) {}
+  }
+  if(!entries.length) {
+    list.innerHTML = "<div style=\"text-align:center;padding:30px;color:var(--text-dim)\">No changes logged yet.</div>";
+    return;
+  }
+  list.innerHTML = entries.map(function(e) {
+    var ts = fmtTimestampGMT8(e.created_at);
+    return "<div style=\"border-bottom:1px solid rgba(200,150,10,0.12);padding:10px 4px;\">" +
+      "<div style=\"font-size:12px;color:var(--text);margin-bottom:3px;\">" +
+        "<span style=\"color:var(--gold);font-weight:600;\">" + (e.dept||"General") + "</span>" +
+        " — " + (e.task_label||"") + " " + (e.change_desc||"") +
+      "</div>" +
+      "<div style=\"font-size:10px;color:var(--text-dim);\">" + ts + "</div>" +
+    "</div>";
+  }).join("");
+}
+
+function closeChangelog() {
+  document.getElementById("changelog-modal").classList.remove("open");
+}
+document.getElementById("changelog-modal").addEventListener("click",function(e){if(e.target===this)closeChangelog();});
+
+// ---- DB SYNC FUNCTIONS ----
+async function dbLoad() {
+  if(!DB_READY || !supabase_client) return false;
+  try {
+    var res = await supabase_client.from("tracker_state").select("*").eq("id",1).single();
+    if(res.data && res.data.payload) {
+      var p = res.data.payload;
+      if(p.S) S = p.S;
+      if(p.CT) CT = p.CT;
+      if(p.ORDER) ORDER = p.ORDER;
+      if(p.REMARKS) REMARKS = p.REMARKS;
+      if(p.STARTS) STARTS = p.STARTS;
+      if(p.OV_DATA) OV_DATA = p.OV_DATA;
+      return true;
+    }
+  } catch(e) { console.warn("dbLoad failed", e); }
+  return false;
+}
+
+async function dbSave() {
+  if(!DB_READY || !supabase_client) return;
+  try {
+    await supabase_client.from("tracker_state").upsert([{
+      id: 1,
+      payload: { S:S, CT:CT, ORDER:ORDER, REMARKS:REMARKS, STARTS:STARTS, OV_DATA:OV_DATA },
+      updated_at: new Date().toISOString()
+    }]);
+  } catch(e) { console.warn("dbSave failed", e); }
+}
+
+// Real-time subscription
+function subscribeRealtime() {
+  if(!DB_READY || !supabase_client) return;
+  supabase_client.channel("tracker").on("postgres_changes",
+    {event:"UPDATE", schema:"public", table:"tracker_state"},
+    function(payload) {
+      if(payload.new && payload.new.payload) {
+        var p = payload.new.payload;
+        if(p.S) S = p.S;
+        if(p.CT) CT = p.CT;
+        if(p.ORDER) ORDER = p.ORDER;
+        if(p.REMARKS) REMARKS = p.REMARKS;
+        if(p.STARTS) STARTS = p.STARTS;
+        if(p.OV_DATA) OV_DATA = p.OV_DATA;
+        allT().forEach(function(t){if(!S[t.id])S[t.id]="not-started";});
+        us();chkRem();rg();ovUpdateStats();if(CV==="calendar")rc();
+      }
+    }
+  ).subscribe();
+}
 const DPICS={
   "KD":       {n:"KD",               r:"Lead Project Manager",        rep:"Reports to JP"},
   "Angelo":   {n:"Masong",           r:"Asst Project Manager",        rep:"Reports to KD"},
@@ -588,11 +770,11 @@ const BASE=[
 let S={},CT=[],PICS=Object.assign({},DPICS),CF="all",CV="gantt",CY=2026,CM=3;
 let ORDER={},COLLAPSED={},REMARKS={},STARTS={},dragSrc=null;
 var ORG_FILTER=null;
-function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
-function saveCT(){try{localStorage.setItem(CTK,JSON.stringify(CT));}catch(e){}}
-function saveOrder(){try{localStorage.setItem(ORK,JSON.stringify(ORDER));}catch(e){}}
-function saveRemarks(){try{localStorage.setItem(RMK,JSON.stringify(REMARKS));}catch(e){}}
-function saveStarts(){try{localStorage.setItem(SRK,JSON.stringify(STARTS));}catch(e){}}
+function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}dbSave();}
+function saveCT(){try{localStorage.setItem(CTK,JSON.stringify(CT));}catch(e){}dbSave();}
+function saveOrder(){try{localStorage.setItem(ORK,JSON.stringify(ORDER));}catch(e){}dbSave();}
+function saveRemarks(){try{localStorage.setItem(RMK,JSON.stringify(REMARKS));}catch(e){}dbSave();}
+function saveStarts(){try{localStorage.setItem(SRK,JSON.stringify(STARTS));}catch(e){}dbSave();}
 function getDepts(){
   var dd=JSON.parse(JSON.stringify(BASE));
   CT.forEach(function(ct){
@@ -960,12 +1142,21 @@ document.addEventListener("change",function(e){
   if(e.target.classList.contains("ov-field")){var id=e.target.getAttribute("data-oid");var f=e.target.getAttribute("data-field");if(id&&f)ovSetField(id,f,e.target.value);}
 });
 function ovLoad(){
-  try{var r=localStorage.getItem(OV_STORE);if(r)OV_DATA=JSON.parse(r);}catch(e){}
+  if(!DB_READY){try{var r=localStorage.getItem(OV_STORE);if(r)OV_DATA=JSON.parse(r);}catch(e){}}
   OVERLAYS.forEach(function(o){if(!OV_DATA[o.id])OV_DATA[o.id]={stage:"ed",remark:"",edS:o.edS,edE:o.edE,clE:o.clE,chS:o.chS,chE:o.chE};});
   ovUpdateStats();
 }
-function ovSave(){try{localStorage.setItem(OV_STORE,JSON.stringify(OV_DATA));}catch(e){}}
-function ovSetStage(id,val){OV_DATA[id].stage=val;ovSave();ovUpdateStats();ovRender();}
+function ovSave(){try{localStorage.setItem(OV_STORE,JSON.stringify(OV_DATA));}catch(e){}dbSave();}
+function ovSetStage(id,val){
+  var oldVal=OV_DATA[id].stage;
+  OV_DATA[id].stage=val;ovSave();ovUpdateStats();ovRender();
+  if(oldVal!==val){
+    var stageLabels={"ed":"Ed designing","client":"Awaiting approval","chuts":"Chuts implementing","done":"Done"};
+    var ov=OVERLAYS.find(function(o){return o.id===id;});
+    var lbl=ov?ov.name:id;
+    logChange("Creatives (Overlays)", lbl, "stage → "+(stageLabels[val]||val));
+  }
+}
 function ovSetField(id,f,val){OV_DATA[id][f]=val;ovSave();ovUpdateStats();}
 function ovUpdateStats(){
   var ed=OVERLAYS.filter(function(o){return OV_DATA[o.id]&&OV_DATA[o.id].stage==="ed";}).length;
@@ -1018,6 +1209,7 @@ function ovRender(){
 
 function setSt(id,val){
   var _sy=window.scrollY||document.documentElement.scrollTop||0;
+  var oldVal=S[id]||"not-started";
   S[id]=val;
   var depts=getDepts();
   depts.forEach(function(dept){
@@ -1032,6 +1224,14 @@ function setSt(id,val){
     });
   });
   save();us();chkRem();rg();
+  // Log change
+  if(oldVal!==val){
+    var dept=getDeptOfTask(id);
+    var lbl=getTaskLabel(id);
+    var statusLabels={"not-started":"Not Started","in-progress":"In Progress","done":"Done","pending":"Pending"};
+    var desc="changed status to "+( statusLabels[val]||val);
+    logChange(dept, lbl, desc);
+  }
   requestAnimationFrame(function(){window.scrollTo(0,_sy);});
 }
 function us(){
@@ -1070,14 +1270,15 @@ function clearDuplicates(){
   alert("Cleared "+dupes.length+" duplicate(s). Refresh if needed.");
 }
 function isInCT(id){return CT.some(function(t){return t.id===id;});}
-function loadAll(){
-  try{var r=localStorage.getItem(SK);if(r)S=JSON.parse(r);}catch(e){}
-  try{var r2=localStorage.getItem(CTK);if(r2)CT=JSON.parse(r2);}catch(e){}
-  try{var r3=localStorage.getItem(ORK);if(r3)ORDER=JSON.parse(r3);}catch(e){}
-  try{var r4=localStorage.getItem(RMK);if(r4)REMARKS=JSON.parse(r4);}catch(e){}
-  try{var r5=localStorage.getItem(SRK);if(r5)STARTS=JSON.parse(r5);}catch(e){}
-  allT().forEach(function(t){if(!S[t.id])S[t.id]="not-started";});
-  rebuildPicSelects();rebuildParentSelect();
+async function loadAll(){
+  initSupabase();
+  var fromDB = await dbLoad();
+  if(!fromDB) {
+    try{var r=localStorage.getItem(SK);if(r)S=JSON.parse(r);}catch(e){}
+    try{var r2=localStorage.getItem(CTK);if(r2)CT=JSON.parse(r2);}catch(e){}
+    try{var r3=localStorage.getItem(ORK);if(r3)ORDER=JSON.parse(r3);}catch(e){}
+    try{var r4=localStorage.getItem(RMK);if(r4)REMARKS=JSON.parse(r4);}catch(e){}
+    try{var r5=localStorage.getItem(SRK);if(r5)STARTS=JSON.parse(r5);}catch(e){}
   var DS={
     "pm1":"2026-04-01","pm1a":"2026-04-20","pm1b":"2026-04-20",
     "pm2":"2026-04-10","pm3":"2026-04-17","pm3a":"2026-04-22","pm3b":"2026-04-23",
@@ -1125,9 +1326,14 @@ function loadAll(){
     "cr3":"2026-04-17","cr3a":"2026-04-17","cr3b":"2026-04-22","cr3c":"2026-04-28","cr3d":"2026-04-22",
     "cr4":"2026-05-01","cr4a":"2026-05-01","cr4b":"2026-05-01","cr4c":"2026-05-01"
   };
-  Object.keys(DS).forEach(function(k){if(!STARTS[k])STARTS[k]=DS[k];});
+    Object.keys(DS).forEach(function(k){if(!STARTS[k])STARTS[k]=DS[k];});
+  } // end if(!fromDB)
+  // Always apply default start dates for any missing entries
   try{document.getElementById("hbg").style.backgroundImage="url("+_KV+")";}catch(e){}
-rg();us();chkRem();buildOrg();ovLoad();
+  allT().forEach(function(t){if(!S[t.id])S[t.id]="not-started";});
+  rebuildPicSelects();rebuildParentSelect();
+  rg();us();chkRem();buildOrg();ovLoad();
+  subscribeRealtime();
 }
 function togglePanel(bid,aid){var b=document.getElementById(bid),a=document.getElementById(aid);var open=b.classList.toggle("open");a.textContent=open?"\u25b4":"\u25be";if(open)rebuildParentSelect();}
 function addTask(){
@@ -1194,5 +1400,20 @@ function calNext(){CM++;if(CM>11){CM=0;CY++;}rc();}
 function fDept(f,btn){CF=f;document.querySelectorAll(".fb").forEach(function(b){b.classList.remove("active");});btn.classList.add("active");CV==="gantt"?rg():rc();us();}
 loadAll();
 </script>
+
+<!-- Changelog Modal -->
+<div class="modal-bg" id="changelog-modal">
+  <div class="modal" style="width:660px;max-width:96vw;max-height:85vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0;">
+      <div class="modal-ttl">&#128221; Changelog</div>
+      <button class="modal-close" onclick="closeChangelog()">&#10005;</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;">
+      <div id="changelog-list" style="font-size:12px;color:var(--text);">
+        <div style="text-align:center;padding:20px;color:var(--text-dim);">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
