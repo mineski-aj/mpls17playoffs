@@ -140,7 +140,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
   </div>
 </div>
 <div class="page">
-  <div id="rem-wrap" class="rem-wrap"><div class="rem-hdr" id="rem-hdr" onclick="toggleRem()"><div class="rem-badge"><span class="rem-badge-count" id="rem-count">0</span> PICs need bumping — deadline in 2 days or less</div><span class="rem-arr" id="rem-arr">&#9662;</span></div><div class="rem-body" id="rem-body"><table class="rem-table"><thead><tr><th>Task</th><th>PIC</th><th>Deadline date</th><th>Urgency</th></tr></thead><tbody id="rem-tbody"></tbody></table></div></div>
+  <div id="rem-wrap" class="rem-wrap"><div class="rem-hdr" id="rem-hdr" onclick="toggleRem()"><span class="rem-arr" id="rem-arr" style="margin-right:8px;font-size:13px;">&#9662;</span><div class="rem-badge"><span class="rem-badge-count" id="rem-count">0</span> PICs need bumping — deadline in 2 days or less</div></div><div class="rem-body" id="rem-body"><table class="rem-table"><thead><tr><th>Task</th><th>PIC</th><th>Deadline date</th><th>Urgency</th></tr></thead><tbody id="rem-tbody"></tbody></table></div></div>
   <div class="stats">
     <div class="stat"><div class="stat-v" id="s-tot">0</div><div class="stat-l">total tasks</div></div>
     <div class="stat"><div class="stat-v" style="color:#1D9E75;" id="s-done">0</div><div class="stat-l">done</div></div>
@@ -669,7 +669,9 @@ function chkRem(){
   if(urg.length){
     wrap.style.display="block";countEl.textContent=urg.length;
     var body=document.getElementById("rem-body"),hdr=document.getElementById("rem-hdr"),arr=document.getElementById("rem-arr");
-    if(body&&!body.classList.contains("open")){body.classList.add("open");if(hdr)hdr.classList.add("open");if(arr)arr.innerHTML="&#9652;";}
+    var _rp=localStorage.getItem("mpl_rem_open");
+    if(_rp!=="0"&&body&&!body.classList.contains("open")){body.classList.add("open");if(hdr)hdr.classList.add("open");if(arr)arr.innerHTML="&#9652;";}
+    if(_rp==="0"&&body&&body.classList.contains("open")){body.classList.remove("open");if(hdr)hdr.classList.remove("open");if(arr)arr.innerHTML="&#9662;";}    
     var prevTag="";
     tbody.innerHTML=urg.map(function(t){
       var p=PICS[t.p]||{n:t.p,r:""};var dl=dleft(t.d);
@@ -685,7 +687,8 @@ function chkRem(){
 }
 function toggleRem(){
   var body=document.getElementById("rem-body"),hdr=document.getElementById("rem-hdr"),arr=document.getElementById("rem-arr");
-  var open=body.classList.toggle("open");hdr.classList.toggle("open",open);arr.innerHTML=open?"&#9652;":"&#9662;";
+  var open=body.classList.toggle("open");hdr.classList.toggle("open",open);arr.innerHTML=open?"&#9660;":"&#9654;";
+  try{localStorage.setItem("mpl_rem_open",open?"1":"0");}catch(e){}
 }
 function urgScore(t){
   if(!t.d)return 999;var dl=dleft(t.d);var st=S[t.id]||"not-started";
@@ -1111,15 +1114,46 @@ async function logChange(dept,label,desc){
   if(DB_READY&&supabase_client){try{await supabase_client.from("changelog").insert([{dept:dept,task_label:label,change_desc:desc}]);}catch(x){}}
 }
 
+var _clEntries=[];
+var _clActiveDept="all";
+
 async function openChangelog(){
   document.getElementById("changelog-modal").classList.add("open");
   var list=document.getElementById("changelog-list");
   list.innerHTML="<div style=\"text-align:center;padding:20px;color:var(--text-dim)\">Loading...</div>";
-  var entries=[];
-  if(DB_READY&&supabase_client){try{var res=await supabase_client.from("changelog").select("*").order("created_at",{ascending:false}).limit(200);if(res.data&&res.data.length)entries=res.data;}catch(x){}}
-  if(!entries.length){try{entries=JSON.parse(localStorage.getItem("mpl_changelog")||"[]");}catch(x){}}
-  if(!entries.length){list.innerHTML="<div style=\"text-align:center;padding:30px;color:var(--text-dim)\">No changes logged yet.</div>";return;}
-  list.innerHTML=entries.map(function(e){return "<div style=\"border-bottom:1px solid rgba(200,150,10,0.12);padding:10px 4px;\"><div style=\"font-size:12px;color:var(--text);margin-bottom:3px;\"><span style=\"color:var(--gold);font-weight:600;\">"+(e.dept||"")+"</span> — "+(e.task_label||"")+" "+(e.change_desc||"")+"</div><div style=\"font-size:10px;color:var(--text-dim);\">"+fmtGMT8(e.created_at)+"</div></div>";}).join("");
+  _clEntries=[];
+  if(DB_READY&&supabase_client){try{var res=await supabase_client.from("changelog").select("*").order("created_at",{ascending:false}).limit(300);if(res.data&&res.data.length)_clEntries=res.data;}catch(x){}}
+  if(!_clEntries.length){try{_clEntries=JSON.parse(localStorage.getItem("mpl_changelog")||"[]");}catch(x){}}
+  // Reset filter to All
+  _clActiveDept="all";
+  document.querySelectorAll("#cl-filters .fb").forEach(function(b){b.classList.remove("active");});
+  var allBtn=document.querySelector("#cl-filters .fb");
+  if(allBtn)allBtn.classList.add("active");
+  renderChangelog();
+}
+
+function clFilter(dept,btn){
+  _clActiveDept=dept;
+  document.querySelectorAll("#cl-filters .fb").forEach(function(b){b.classList.remove("active");});
+  btn.classList.add("active");
+  renderChangelog();
+}
+
+function renderChangelog(){
+  var list=document.getElementById("changelog-list");
+  var filtered=_clActiveDept==="all"?_clEntries:_clEntries.filter(function(e){return (e.dept||"")=== _clActiveDept;});
+  if(!filtered.length){
+    list.innerHTML="<div style=\"text-align:center;padding:30px;color:var(--text-dim)\">"+((_clEntries.length&&_clActiveDept!=="all")?"No changes for this department.":"No changes logged yet.")+"</div>";
+    return;
+  }
+  list.innerHTML=filtered.map(function(e){
+    return "<div style=\"border-bottom:1px solid rgba(200,150,10,0.12);padding:10px 4px;\">"+
+      "<div style=\"font-size:12px;color:var(--text);margin-bottom:3px;\">"+
+        "<span style=\"color:var(--gold);font-weight:600;\">"+(e.dept||"")+"</span> — "+(e.task_label||"")+" "+(e.change_desc||"")+
+      "</div>"+
+      "<div style=\"font-size:10px;color:var(--text-dim);\">"+fmtGMT8(e.created_at)+"</div>"+
+    "</div>";
+  }).join("");
 }
 
 function closeChangelog(){document.getElementById("changelog-modal").classList.remove("open");}
@@ -1261,10 +1295,23 @@ loadAll();
 </script>
 
 <div class="modal-bg" id="changelog-modal">
-  <div class="modal" style="width:660px;max-width:96vw;max-height:85vh;display:flex;flex-direction:column;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-shrink:0;">
+  <div class="modal" style="width:680px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-shrink:0;">
       <div class="modal-ttl">&#128221; Changelog</div>
       <button class="modal-close" onclick="closeChangelog()">&#10005;</button>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;flex-shrink:0;" id="cl-filters">
+      <button class="fb active" onclick="clFilter('all',this)">All</button>
+      <button class="fb" onclick="clFilter('Project Management',this)">Project Mgmt</button>
+      <button class="fb" onclick="clFilter('Broadcast',this)">Broadcast</button>
+      <button class="fb" onclick="clFilter('Creatives',this)">Creatives</button>
+      <button class="fb" onclick="clFilter('Creatives (Overlays)',this)">Overlays</button>
+      <button class="fb" onclick="clFilter('Show',this)">Show</button>
+      <button class="fb" onclick="clFilter('Hospitality',this)">Hospitality</button>
+      <button class="fb" onclick="clFilter('IT',this)">IT</button>
+      <button class="fb" onclick="clFilter('Logistics',this)">Logistics</button>
+      <button class="fb" onclick="clFilter('League Ops',this)">League Ops</button>
+      <button class="fb" onclick="clFilter('Talent Management',this)">Talent</button>
     </div>
     <div style="overflow-y:auto;flex:1;">
       <div id="changelog-list" style="font-size:12px;color:var(--text);">
