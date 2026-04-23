@@ -709,7 +709,7 @@ function makeRow(t,isSub,deptId){
   var isU=hd&&dl>=0&&dl<=2&&st!=="done",isO=hd&&dl<0&&st!=="done";
   var eo=hd?Math.min(TDAYS,Math.max(0,doff(t.d))):0,bw=hd?Math.max(1,pct(eo,TDAYS)):0;
   var dd=hd?new Date(t.d).toLocaleDateString("en-PH",{month:"short",day:"numeric"}):"";
-  var dlh=!hd?"":isO?"<span style=\"color:#FF5060;font-weight:600;\">overdue</span>":dl===0?"<span style=\"color:#FF5060;font-weight:600;\">today</span>":"<span style=\""+(dl<=2?"color:#FF7080;font-weight:500;":"color:rgba(200,170,80,0.5);")+"\">"+dl+"d</span>";
+  var dlh=!hd?"":st==="done"?"<span style=\"color:#1D9E75;font-weight:600;\">DONE</span>":isO?"<span style=\"color:#FF5060;font-weight:600;\">overdue "+Math.abs(dl)+"d</span>":dl===0?"<span style=\"color:#FF5060;font-weight:600;\">today</span>":"<span style=\""+(dl<=2?"color:#FF7080;font-weight:500;":"color:rgba(200,170,80,0.5);")+"\">"+dl+"d</span>";
   var bc=isO?"#B01020":st==="done"?"#1D9E75":sc.b;
   var hasSubs=!isSub&&(t.subs||[]).length>0,collapsed=COLLAPSED[t.id];
   var tr=document.createElement("tr");
