@@ -116,6 +116,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
 .rem-pic{color:#EFB820;font-size:11px;}
 .rem-role{color:rgba(200,180,100,0.5);font-size:10px;}
 .rem-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;white-space:nowrap;}
+.rem-tag.overdue{background:rgba(120,0,0,0.6);color:#FF6070;}
 .rem-tag.today{background:#B01020;color:#fff;}
 .rem-tag.tomorrow{background:#854F0B;color:#FDF0C0;}
 .rem-tag.two{background:#3C3489;color:#CECBF6;}
@@ -141,7 +142,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
   </div>
 </div>
 <div class="page">
-  <div id="rem-wrap" class="rem-wrap"><div class="rem-hdr" id="rem-hdr" onclick="toggleRem()"><span class="rem-arr" id="rem-arr" style="margin-right:8px;font-size:13px;">&#9662;</span><div class="rem-badge"><span class="rem-badge-count" id="rem-count">0</span> PICs need bumping — deadline in 2 days or less</div></div><div class="rem-body" id="rem-body"><table class="rem-table"><thead><tr><th>Task</th><th>PIC</th><th>Deadline date</th><th>Urgency</th></tr></thead><tbody id="rem-tbody"></tbody></table></div></div>
+  <div id="rem-wrap" class="rem-wrap"><div class="rem-hdr" id="rem-hdr" onclick="toggleRem()"><span class="rem-arr" id="rem-arr" style="margin-right:8px;font-size:13px;">&#9662;</span><div class="rem-badge"><span class="rem-badge-count" id="rem-count">0</span> PICs need bumping — overdue or due within 2 days</div></div><div class="rem-body" id="rem-body"><table class="rem-table"><thead><tr><th>Task</th><th>PIC</th><th>Deadline date</th><th>Urgency</th></tr></thead><tbody id="rem-tbody"></tbody></table></div></div>
   <div class="stats">
     <div class="stat"><div class="stat-v" id="s-tot">0</div><div class="stat-l">total tasks</div></div>
     <div class="stat"><div class="stat-v" style="color:#1D9E75;" id="s-done">0</div><div class="stat-l">done</div></div>
@@ -670,7 +671,7 @@ function setRemark(id,val){REMARKS[id]=val;saveRemarks();}
 function setStart(id,val){STARTS[id]=val;saveStarts();rg();}
 function calcLeadTime(s,d){if(!s||!d)return "";var days=Math.round((new Date(d)-new Date(s))/864e5);return days<0?"":days===1?"1 day":days+" days";}
 function chkRem(){
-  var urg=allT().filter(function(t){if(!t.d)return false;var dl=dleft(t.d);return dl>=0&&dl<=2&&S[t.id]!=="done";});
+  var urg=allT().filter(function(t){if(!t.d)return false;var dl=dleft(t.d);return dl<=2&&S[t.id]!=="done";});
   urg.sort(function(a,b){return dleft(a.d)-dleft(b.d);});
   var wrap=document.getElementById("rem-wrap"),tbody=document.getElementById("rem-tbody"),countEl=document.getElementById("rem-count");
   if(!wrap||!tbody)return;
@@ -683,8 +684,8 @@ function chkRem(){
     var prevTag="";
     tbody.innerHTML=urg.map(function(t){
       var p=PICS[t.p]||{n:t.p,r:""};var dl=dleft(t.d);
-      var tagCls=dl===0?"today":dl===1?"tomorrow":"two";
-      var tagTxt=dl===0?"TODAY":dl===1?"Tomorrow":"2 days";
+      var tagCls=dl<0?"overdue":dl===0?"today":dl===1?"tomorrow":"two";
+      var tagTxt=dl<0?"OVERDUE "+Math.abs(dl)+"d":dl===0?"TODAY":dl===1?"Tomorrow":"2 days";
       var dateStr=new Date(t.d).toLocaleDateString("en-PH",{weekday:"short",month:"short",day:"numeric"});
       var divider="";
       if(tagTxt!==prevTag&&prevTag!==""){divider="<tr><td colspan=\"4\" style=\"padding:0;border-bottom:1px solid rgba(200,150,10,0.2);\"></td></tr>";}
