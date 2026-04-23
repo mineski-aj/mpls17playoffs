@@ -127,6 +127,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
 .parent-label{font-weight:600;color:var(--gold-light);}
 .toggle-btn{font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--border-s);background:transparent;color:var(--text-dim);cursor:pointer;margin-right:6px;}
 .toggle-btn:hover{color:var(--gold);border-color:var(--gold);}
+@keyframes pulse{from{opacity:0.2;}to{opacity:0.5;}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 </head>
@@ -324,7 +325,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
 
 </script>
 <script>
-const TODAY=new Date("2026-04-21"),START=new Date("2026-04-21"),END=new Date("2026-05-31");
+const TODAY=new Date(new Date().toDateString()),START=new Date("2026-04-21"),END=new Date("2026-05-31");
 const TDAYS=Math.round((END-START)/864e5);
 const SK="mpl_s17_v4",CTK="mpl_s17_ct_v4",ORK="mpl_s17_order_v4",RMK="mpl_s17_remarks_v4",SRK="mpl_s17_starts_v4";
 const DPICS={
@@ -1226,6 +1227,11 @@ function loadAll(){
   allT().forEach(function(t){if(!S[t.id])S[t.id]="not-started";});
   rebuildPicSelects();rebuildParentSelect();
   rg();us();chkRem();buildOrg();ovLoad();
+  // Show loading indicators in stats until Supabase responds
+  ["s-tot","s-done","s-urg","s-pct"].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.innerHTML="<span style='opacity:0.3;animation:pulse 1s infinite alternate;'>···</span>";
+  });
+  document.getElementById("gb").innerHTML="<tr><td colspan='11' style='text-align:center;padding:40px;color:rgba(240,237,208,0.3);font-size:13px;letter-spacing:0.05em;'>Loading from database...</td></tr>";
 
   // Attach changelog modal close
   // Event delegation for reminder rows - handles all rows including after re-render
@@ -1238,6 +1244,7 @@ function loadAll(){
   if(_cm)_cm.addEventListener("click",function(e){if(e.target===this)closeChangelog();});
 
   // Connect to Supabase in background - non-blocking
+  setTimeout(function(){},4000);
   initAndSync();
 }
 
