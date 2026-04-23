@@ -142,7 +142,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
   </div>
 </div>
 <div class="page">
-  <div id="rem-wrap" class="rem-wrap"><div class="rem-hdr" id="rem-hdr" onclick="toggleRem()"><span class="rem-arr" id="rem-arr" style="margin-right:8px;font-size:13px;">&#9662;</span><div class="rem-badge"><span class="rem-badge-count" id="rem-count">0</span> PICs need bumping — overdue or due within 2 days</div></div><div class="rem-body" id="rem-body"><table class="rem-table"><thead><tr><th>Task</th><th>PIC</th><th>Deadline date</th><th>Urgency</th></tr></thead><tbody id="rem-tbody"></tbody></table></div></div>
+  <div id="rem-wrap" class="rem-wrap"><div class="rem-hdr" id="rem-hdr" onclick="toggleRem()"><span class="rem-arr" id="rem-arr" style="margin-right:8px;font-size:13px;">&#9662;</span><div class="rem-badge"><span class="rem-badge-count" id="rem-count">0</span> PICs need bumping — overdue or due within 2 days</div></div><div class="rem-body" id="rem-body"><table class="rem-table"><thead><tr><th>Task</th><th>Dept</th><th>PIC</th><th>Deadline date</th><th>Urgency</th></tr></thead><tbody id="rem-tbody"></tbody></table></div></div>
   <div class="stats">
     <div class="stat"><div class="stat-v" id="s-tot">0</div><div class="stat-l">total tasks</div></div>
     <div class="stat"><div class="stat-v" style="color:#1D9E75;" id="s-done">0</div><div class="stat-l">done</div></div>
@@ -690,7 +690,8 @@ function chkRem(){
       var divider="";
       if(tagTxt!==prevTag&&prevTag!==""){divider="<tr><td colspan=\"4\" style=\"padding:0;border-bottom:1px solid rgba(200,150,10,0.2);\"></td></tr>";}
       prevTag=tagTxt;
-      return divider+"<tr style=\"cursor:pointer;\" data-taskid=\""+t.id+"\" title=\"Click to jump to task\"><td class=\"rem-task\">"+t.l+"</td><td><div class=\"rem-pic\">"+p.n+"</div><div class=\"rem-role\">"+p.r+"</div></td><td style=\"font-size:11px;color:rgba(200,170,80,0.7);white-space:nowrap;\">"+dateStr+"</td><td><span class=\"rem-tag "+tagCls+"\">"+tagTxt+"</span></td></tr>";
+      var dept=getDeptOfTask(t.id);
+      return divider+"<tr style=\"cursor:pointer;\" data-taskid=\""+t.id+"\" title=\"Click to jump to task\"><td class=\"rem-task\">"+t.l+"</td><td style=\"font-size:11px;color:var(--gold);white-space:nowrap;\">"+dept+"</td><td><div class=\"rem-pic\">"+p.n+"</div><div class=\"rem-role\">"+p.r+"</div></td><td style=\"font-size:11px;color:rgba(200,170,80,0.7);white-space:nowrap;\">"+dateStr+"</td><td><span class=\"rem-tag "+tagCls+"\">"+tagTxt+"</span></td></tr>";
     }).join("");
   } else {wrap.style.display="none";}
 }
