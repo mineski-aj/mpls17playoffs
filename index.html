@@ -673,7 +673,7 @@ function setRemark(id,val){REMARKS[id]=val;saveRemarks();}
 function setStart(id,val){STARTS[id]=val;saveStarts();rg();}
 function calcLeadTime(s,d){if(!s||!d)return "";var days=Math.round((new Date(d)-new Date(s))/864e5);return days<0?"":days===1?"1 day":days+" days";}
 function chkRem(){
-  var urg=allT().filter(function(t){if(!t.d)return false;var dl=dleft(t.d);return dl<=2&&S[t.id]!=="done";});
+  var urg=allT().filter(function(t){if(!t.d)return false;var dl=dleft(t.d);var st=S[t.id]||"not-started";return dl<=2&&st!=="done"&&st!=="for-approval";});
   urg.sort(function(a,b){return dleft(a.d)-dleft(b.d);});
   var wrap=document.getElementById("rem-wrap"),tbody=document.getElementById("rem-tbody"),countEl=document.getElementById("rem-count");
   if(!wrap||!tbody)return;
@@ -709,7 +709,7 @@ function urgScore(t){
 function makeRow(t,isSub,deptId){
   var st=S[t.id]||"not-started",sc=SC[st],p=PICS[t.p]||{n:t.p||"",r:""};
   var hd=!!t.d,dl=hd?dleft(t.d):null;
-  var isU=hd&&dl>=0&&dl<=2&&st!=="done",isO=hd&&dl<0&&st!=="done";
+  var isU=hd&&dl>=0&&dl<=2&&st!=="done"&&st!=="for-approval",isO=hd&&dl<0&&st!=="done"&&st!=="for-approval";
   var eo=hd?Math.min(TDAYS,Math.max(0,doff(t.d))):0,bw=hd?Math.max(1,pct(eo,TDAYS)):0;
   var dd=hd?new Date(t.d).toLocaleDateString("en-PH",{month:"short",day:"numeric"}):"";
   var dlh=!hd?"":st==="done"?"<span style=\"color:#1D9E75;font-weight:600;\">DONE</span>":isO?"<span style=\"color:#FF5060;font-weight:600;\">overdue "+Math.abs(dl)+"d</span>":dl===0?"<span style=\"color:#FF5060;font-weight:600;\">today</span>":"<span style=\""+(dl<=2?"color:#FF7080;font-weight:500;":"color:rgba(200,170,80,0.5);")+"\">"+dl+"d</span>";
@@ -783,7 +783,7 @@ function scrollToTask(id){
 }
 function matchSF(t){
   if(SF==="all")return true;
-  if(SF==="overdue"){var dl=t.d?Math.round((new Date(t.d)-new Date())/864e5):null;return dl!==null&&dl<0&&S[t.id]!=="done";}
+  if(SF==="overdue"){var dl=t.d?Math.round((new Date(t.d)-new Date())/864e5):null;var st=S[t.id]||"not-started";return dl!==null&&dl<0&&st!=="done"&&st!=="for-approval";}
   return (S[t.id]||"not-started")===SF;
 }
 function rg(){
