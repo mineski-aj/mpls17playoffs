@@ -168,6 +168,7 @@ tr.drag-over td{border-top:2px solid var(--gold);}
     <button class="fb sf" onclick="fStatus('done',this)">Done</button>
     <button class="fb sf" onclick="fStatus('pending',this)">Pending</button>
     <button class="fb sf" onclick="fStatus('overdue',this)">Overdue</button>
+    <button class="fb sf" onclick="fStatus('for-approval',this)">For Approval</button>
     <div class="vt">
       <button class="vtb active" id="bg" onclick="sView('gantt')">Gantt</button>
       <button class="vtb" id="bc" onclick="sView('calendar')">Calendar</button>
@@ -350,7 +351,8 @@ const SC={
   "not-started":{l:"Not started",c:"#B01020",b:"#2A3560"},
   "in-progress":{l:"In progress",c:"#C8960A",b:"#C8960A"},
   "done":{l:"Done",c:"#1D9E75",b:"#1D9E75"},
-  "pending":{l:"Pending",c:"#405080",b:"#405080"}
+  "pending":{l:"Pending",c:"#405080",b:"#405080"},
+  "for-approval":{l:"For Approval",c:"#7B3FB0",b:"#7B3FB0"}
 };
 const BASE=[
   {id:"pm",n:"Project Management — KD (Lead PM) · Masong (Asst PM)",t:[
@@ -1073,7 +1075,7 @@ function setSt(id,val){
     });
   });
   save();us();chkRem();rg();
-  if(_oldVal!==val){var _d=getDeptOfTask(id);var _l=getTaskLabel(id);var _sm={"not-started":"Not Started","in-progress":"In Progress","done":"Done","pending":"Pending"};logChange(_d,_l,"changed status to "+(_sm[val]||val));}
+  if(_oldVal!==val){var _d=getDeptOfTask(id);var _l=getTaskLabel(id);var _sm={"not-started":"Not Started","in-progress":"In Progress","done":"Done","pending":"Pending","for-approval":"For Approval"};logChange(_d,_l,"changed status to "+(_sm[val]||val));}
   requestAnimationFrame(function(){window.scrollTo(0,_sy);});
 }
 function us(){
