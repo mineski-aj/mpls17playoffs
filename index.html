@@ -853,7 +853,7 @@ function renderSubList(parentId){
     html+="<div style='padding:4px 8px;border-left:2px solid rgba(200,150,10,0.3);margin:3px 0;color:var(--text);'>"+s.l+" <span style='color:var(--text-dim);font-size:10px;'>(base)</span></div>";
   });
   subs.forEach(function(s){
-    html+="<div style='padding:4px 8px;border-left:2px solid rgba(29,158,117,0.5);margin:3px 0;display:flex;justify-content:space-between;align-items:center;'><span style='color:var(--text);'>"+s.l+"</span><button onclick='deleteSubTask(""+s.id+"",""+parentId+"")' style='font-size:10px;background:rgba(180,30,30,0.2);border:1px solid rgba(180,30,30,0.4);color:#FF7080;border-radius:4px;padding:2px 6px;cursor:pointer;'>Del</button></div>";
+    html+="<div style='padding:4px 8px;border-left:2px solid rgba(29,158,117,0.5);margin:3px 0;display:flex;justify-content:space-between;align-items:center;'><span style='color:var(--text);'>"+s.l+"</span><button onclick='deleteSubTask(&quot;"+s.id+"&quot;,&quot;"+parentId+"&quot;)' style='font-size:10px;background:rgba(180,30,30,0.2);border:1px solid rgba(180,30,30,0.4);color:#FF7080;border-radius:4px;padding:2px 6px;cursor:pointer;'>Del</button></div>";
   });
   el.innerHTML=html;
 }
